@@ -7,6 +7,7 @@
     <div id="correctness-div">
       <p v-show="correctness">{{ correctness }}</p>
     </div>
+    <p id="answer" v-show="showAnswer">{{ animal }}</p>
     <div id="list-div">
       <ul class="adjective-list" v-show="array1status">
         <li v-for="adjective in adjectiveArray1">{{ adjective }}</li>
@@ -17,10 +18,10 @@
       <ul class="adjective-list" v-show="array3status">
         <li v-for="adjective in adjectiveArray3">{{ adjective }}</li>
       </ul>
-  </div>
+    </div>
     <p v-show="showFirstLetter">It starts with: <span class="big-letter">{{ animal[0] }}</span></p>
-    <p id="answer" v-show="showAnswer">{{ animal }}</p>
     <button v-on:click="buttonFunction">{{ buttonText }}</button>
+    <p v-show="errorOccurs">{{ errorMessage }}</p>
   </div>
 </template>
 
@@ -42,7 +43,9 @@ export default {
       array3status: false,
       showFirstLetter: false,
       showAnswer: false,
-      correctness: ''
+      correctness: '',
+      errorOccurs: false,
+      errorMessage: ''
     }
   },
   created () {
@@ -52,12 +55,15 @@ export default {
     buttonFunction: function () {
       if (this.buttonStatus === 'stage0') {
         this.buttonText = 'New animal, please!';
-        this.buttonStatus = 'stage1';
+        this.buttonStatus = 'stage1'
       } else if (this.buttonStatus === 'stage1') {
         this.randomAnimal();
         this.getAdjectives();
         this.animalInput = '';
         this.array1status = true;
+        this.array2status = false;
+        this.array3status = false;
+        this.showFirstLetter = false;
         this.buttonStatus = 'stage2';
         this.buttonText = '5 more!';
         this.showAnswer = false;
@@ -76,30 +82,43 @@ export default {
         this.buttonText = 'I give up!';
       } else if (this.buttonStatus === 'stage5') {
         this.showAnswer = true;
-        this.array1status = false;
-        this.array2status = false;
-        this.array3status = false;
-        this.showFirstLetter = false;
         this.buttonStatus = 'stage0';
         this.buttonFunction();
       } 
-
     },
     randomAnimal: function () {
       let i = Math.floor(Math.random() * this.animalArray.length);
-      // return this.nouns[i];
       this.animal = this.animalArray[i];
-      // this.animal = this.nouns[i];
-      console.log(this.animal)
-    },
+    },    
     getAdjectives: function () {
       this.adjectiveArray1 = [];
       this.adjectiveArray2 = [];
       this.adjectiveArray3 = [];
-      this.$http.get('https://api.datamuse.com/words?rel_jjb=' + this.animal).then(function(data) {
-      console.log(data);
+      this.errorOccurs = false;
+      this.$http.get('https://api.datamuse.com/words?rel_jjb=' + this.animal).catch(function onError(error) {
+        if (error.status === 400) {
+          this.buttonText = 'Try again';
+          this.buttonStatus = 'stage0';
+          this.errorOccurs = true;
+          this.errorMessage = 'Bad request, often due to missing a required parameter.';
+        } else if (error.status === 401) {
+          this.buttonText = 'Try again';
+          this.buttonStatus = 'stage0';
+          this.errorOccurs = true;
+          this.errorMessage = 'No valid API key provided.';
+        } else if (error.status === 404) {
+          this.buttonText = 'Try again';
+          this.buttonStatus = 'stage0';
+          this.errorOccurs = true;
+          this.errorMessage = 'The requested resource doesn\'t exist.';     
+        } else if (error) {
+          this.buttonText = 'Try again';
+          this.buttonStatus = 'stage0';
+          this.errorOccurs = true;
+          this.errorMessage = 'We\'re having trouble reaching the server. Please try again later or use a different browser.'
+        }
+      }).then(function(data) {
       return data.json();
-      
       }).then(function(data) {
         for (let i = 0; i < 5; i++) {
           this.adjectiveArray1.push(Object.values(data[i])[0]);
@@ -169,14 +188,13 @@ input {
 
 .adjective-list {
   display: inline-block;
-  list-style-type: none;
   text-align: left;
 }
 
 button {
   display: block;
   margin: 0 auto;
-  margin-top: 50px;
+  margin-top: 10px;
   padding: 10px;
   border: none;
   border-radius: 15px;
@@ -187,6 +205,15 @@ button {
   cursor: pointer;
 }
 
+button::-moz-focus-inner {
+  border: 0;
+}
+
+input:focus,
+button:focus {
+    outline: none;
+}
+
 .big-letter {
   margin-left: 10px;
   font-size: 40px;
@@ -195,6 +222,8 @@ button {
 
 #answer {
   font-size: 30px;
+  border: 2px solid #e2141b;
+  background-color: #e2141b;
+  color: #fff;
 }
-
 </style>
